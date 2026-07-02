@@ -1,4 +1,5 @@
 import { DashboardCards } from '../components/dashboard/DashboardCards';
+import { AutoScreeningControl } from '../components/dashboard/AutoScreeningControl';
 import { useApp } from '../context/AppContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -16,6 +17,8 @@ export function DashboardPage() {
         </h2>
         <DashboardCards />
       </section>
+
+      <AutoScreeningControl />
 
       {!hasActiveCampaign && (
         <Card className="animate-slide-up border-dashed text-center py-10">

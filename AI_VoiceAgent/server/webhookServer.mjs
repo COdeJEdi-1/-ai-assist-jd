@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { URL } from 'url';
+import * as XLSX from 'xlsx';
 import {
   addInboundCandidate,
   assignToBatch,
@@ -12,11 +13,13 @@ import {
   getCallLogsFromWebhooks,
   getOrOpenBatch,
   getWebhookStats,
+  isAutoCallEnabled,
   listBatches,
   listInboundCandidates,
   listRecentEvents,
   markCandidateDispatched,
   registerCampaign,
+  setAutoCallEnabled,
   storeWebhookEvent,
 } from './webhookStore.mjs';
 import { dispatchToPhone, isDryRun } from './omnidimClient.mjs';
@@ -80,6 +83,57 @@ function readBody(req) {
   });
 }
 
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+const NAME_KEYS = ['name', 'candidate', 'candidate name', 'full name'];
+const PHONE_KEYS = ['phone', 'mobile', 'phone number', 'contact', 'contact number'];
+const EMAIL_KEYS = ['email', 'e-mail', 'email address'];
+const ROLE_KEYS = ['role', 'job role', 'job title', 'position', 'role title'];
+
+function normalizeHeader(header) {
+  return String(header).trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+}
+
+function findColumnKey(headers, candidates) {
+  const normalized = headers.map((h) => ({ raw: h, norm: normalizeHeader(h) }));
+  for (const key of candidates) {
+    const match = normalized.find((h) => h.norm === key || h.norm.includes(key));
+    if (match) return match.raw;
+  }
+  return null;
+}
+
+/** Parses an uploaded Excel/CSV buffer into candidate rows (Name/Phone required, Email/Role optional). */
+function parseQualifiedExcel(buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  if (rows.length === 0) return [];
+
+  const headers = Object.keys(rows[0]);
+  const nameKey = findColumnKey(headers, NAME_KEYS);
+  const phoneKey = findColumnKey(headers, PHONE_KEYS);
+  const emailKey = findColumnKey(headers, EMAIL_KEYS);
+  const roleKey = findColumnKey(headers, ROLE_KEYS);
+
+  return rows
+    .map((row, idx) => ({
+      candidateId: `upload-${Date.now()}-${idx}`,
+      name: nameKey ? String(row[nameKey]).trim() : '',
+      phone: phoneKey ? String(row[phoneKey]).trim() : '',
+      email: emailKey ? String(row[emailKey]).trim() || undefined : undefined,
+      roleTitle: roleKey ? String(row[roleKey]).trim() || undefined : undefined,
+    }))
+    .filter((c) => c.name && c.phone);
+}
+
 function isAuthorized(req, url) {
   if (!WEBHOOK_SECRET) return true;
 
@@ -111,7 +165,15 @@ function buildCallContext(record) {
   };
 }
 
-async function dispatchInboundCandidate(record) {
+async function dispatchInboundCandidate(record, options = {}) {
+  const { force = false } = options;
+
+  if (!force && !isAutoCallEnabled()) {
+    markCandidateDispatched(record.id, { dispatchStatus: 'paused' });
+    console.log(`[Candidates] Auto-calling is paused — holding ${record.name} without dispatch`);
+    return;
+  }
+
   const batch = getOrOpenBatch();
   assignToBatch(batch.id, record.id);
 
@@ -352,6 +414,67 @@ const server = http.createServer(async (req, res) => {
         'Access-Control-Allow-Origin': '*',
       });
       res.end(csv);
+      return;
+    }
+
+    if (pathname === '/api/settings/auto-call' && req.method === 'GET') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      sendJson(res, 200, { enabled: isAutoCallEnabled() });
+      return;
+    }
+
+    if (pathname === '/api/settings/auto-call' && req.method === 'POST') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      const body = await readBody(req);
+      const enabled = setAutoCallEnabled(body.enabled);
+      console.log(`[Settings] Auto-calling ${enabled ? 'ENABLED' : 'PAUSED'}`);
+      sendJson(res, 200, { success: true, enabled });
+      return;
+    }
+
+    if (pathname === '/api/candidates/bulk-upload' && req.method === 'POST') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      const buffer = await readRawBody(req);
+      let parsed;
+      try {
+        parsed = parseQualifiedExcel(buffer);
+      } catch (err) {
+        sendJson(res, 400, { error: `Could not parse file: ${err instanceof Error ? err.message : err}` });
+        return;
+      }
+
+      if (parsed.length === 0) {
+        sendJson(res, 400, { error: 'No valid rows found — file needs Name and Phone columns' });
+        return;
+      }
+
+      const records = parsed.map((c) => addInboundCandidate(c));
+      console.log(`[Candidates] Bulk upload: ${records.length} candidates queued for manual dispatch`);
+
+      sendJson(res, 201, {
+        success: true,
+        count: records.length,
+        candidates: records.map((r) => ({ id: r.id, name: r.name })),
+      });
+
+      (async () => {
+        for (const record of records) {
+          await dispatchInboundCandidate(record, { force: true });
+        }
+      })().catch((err) => console.error('[Candidates] Bulk dispatch error:', err));
+
       return;
     }
 

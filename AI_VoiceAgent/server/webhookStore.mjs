@@ -8,6 +8,7 @@ const EVENTS_FILE = path.join(DATA_DIR, 'post-call-webhooks.json');
 const CAMPAIGNS_FILE = path.join(DATA_DIR, 'registered-campaigns.json');
 const INBOUND_CANDIDATES_FILE = path.join(DATA_DIR, 'inbound-candidates.json');
 const BATCHES_FILE = path.join(DATA_DIR, 'inbound-batches.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const DEFAULT_BATCH_WINDOW_MS = 10 * 60 * 1000;
 
 /** @typedef {import('./webhookTypes.mjs').PostCallWebhookEvent} PostCallWebhookEvent */
@@ -43,6 +44,23 @@ let campaigns = readJson(CAMPAIGNS_FILE, []);
 let inboundCandidates = readJson(INBOUND_CANDIDATES_FILE, []);
 
 let batches = readJson(BATCHES_FILE, []);
+
+let settings = readJson(SETTINGS_FILE, { autoCallEnabled: true });
+
+function persistSettings() {
+  writeJson(SETTINGS_FILE, settings);
+}
+
+/** Whether the automatic score-triggered calling pipeline is currently active. */
+export function isAutoCallEnabled() {
+  return settings.autoCallEnabled !== false;
+}
+
+export function setAutoCallEnabled(enabled) {
+  settings.autoCallEnabled = Boolean(enabled);
+  persistSettings();
+  return settings.autoCallEnabled;
+}
 
 function persistEvents() {
   writeJson(EVENTS_FILE, events);
