@@ -494,6 +494,39 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/api/candidates/manual-call' && req.method === 'POST') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      const body = await readBody(req);
+      if (!body.name || !body.phone) {
+        sendJson(res, 400, { error: 'name and phone are required' });
+        return;
+      }
+
+      const record = addInboundCandidate({
+        candidateId: body.candidateId ? String(body.candidateId) : `manual-${Date.now()}`,
+        name: String(body.name),
+        phone: String(body.phone),
+        email: body.email ? String(body.email) : undefined,
+        score: typeof body.score === 'number' ? body.score : Number(body.score) || undefined,
+        roleTitle: body.roleTitle ? String(body.roleTitle) : undefined,
+        darwinboxJobId: body.darwinboxJobId ? String(body.darwinboxJobId) : undefined,
+      });
+
+      console.log(`[Candidates] Manual call requested for ${record.name} (${record.phoneNormalized ?? 'invalid phone'})`);
+
+      sendJson(res, 201, { success: true, id: record.id, dispatchStatus: record.dispatchStatus });
+
+      dispatchInboundCandidate(record, { force: true }).catch((err) => {
+        console.error('[Candidates] Manual call dispatch error:', err);
+      });
+
+      return;
+    }
+
     sendJson(res, 404, { error: 'Not found' });
   } catch (err) {
     console.error('[Webhook] Error:', err);

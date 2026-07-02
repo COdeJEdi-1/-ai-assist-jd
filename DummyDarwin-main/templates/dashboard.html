@@ -311,17 +311,23 @@
                     <p class="library-description">Highest-scored candidates per role — export to Excel for sharing.</p>
                 </div>
             </div>
-            <div style="display:flex;gap:10px;">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="display:inline-flex;align-items:center;gap:4px;background:#f5f5f5;padding:4px;border-radius:24px;">
+                    <button type="button" id="btnAutoCallAuto" onclick="setAutoCallMode(true)"
+                            style="border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">Automatic</button>
+                    <button type="button" id="btnAutoCallManual" onclick="setAutoCallMode(false)"
+                            style="border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;">Manual</button>
+                </div>
                 <a href="/api/top3-export"
                    style="display:inline-flex;align-items:center;gap:7px;background:#2e7d32;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px rgba(46,125,50,0.18);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download Excel
                 </a>
                 <a href="/api/qualified-export"
-                   title="Every candidate scored 80+ across all roles — the same set auto-sent to AI Voice Screening"
+                   title="Every candidate whose score triggers an automatic AI Voice Screening call"
                    style="display:inline-flex;align-items:center;gap:7px;background:#830026;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px rgba(131,0,38,0.18);">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Qualified (80+) Excel
+                    Qualified for AI Call
                 </a>
             </div>
         </div>
@@ -337,10 +343,10 @@
                         <th style="text-align:left;padding:10px 14px;font-weight:700;color:#2e7d32;">Phone</th>
                         <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Score</th>
                         <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Platform</th>
+                        <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Call</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% set rank_medals = ['🥇','🥈','🥉'] %}
                     {% set ns = namespace(prev_job='', rank=0) %}
                     {% set scored = [] %}
                     {% for c in candidates %}
@@ -361,14 +367,13 @@
                         {% set role = job_map.get(jid, 'Unknown') %}
                         {% for idx in range(top_list|length) %}
                             {% set score, c, sc = top_list[idx] %}
-                            {% set medal = rank_medals[idx] %}
                             {% set row_bg = '#fffde7' if idx==0 else ('#fafafa' if idx==1 else '#fff8f0') %}
                             <tr style="border-bottom:1px solid #f0f0f0;background:{{ row_bg }};"
                                 onmouseover="this.style.background='#f1f8e9'" onmouseout="this.style.background='{{ row_bg }}'">
                                 {% if idx == 0 %}
                                 <td style="padding:10px 14px;font-weight:600;color:#333;" rowspan="{{ top_list|length }}">{{ role }}</td>
                                 {% endif %}
-                                <td style="padding:10px 8px;text-align:center;font-size:18px;">{{ medal }}</td>
+                                <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:700;color:#555;">{{ idx + 1 }}</td>
                                 <td style="padding:10px 14px;font-weight:600;">{{ c.name }}</td>
                                 <td style="padding:10px 14px;color:#555;font-size:12px;">{{ c.email }}</td>
                                 <td style="padding:10px 14px;color:#555;font-size:12px;">{{ c.phone or '—' }}</td>
@@ -384,11 +389,16 @@
                                     <span style="font-size:11px;background:#fff3f0;color:#ff7555;padding:2px 8px;border-radius:99px;font-weight:700;">Naukri</span>
                                     {% endif %}
                                 </td>
+                                <td style="padding:10px 8px;text-align:center;">
+                                    <button type="button" title="Manually call this candidate now"
+                                            onclick="manualCall({{ c.name|tojson }}, {{ (c.phone or '')|tojson }}, {{ (c.email or '')|tojson }}, {{ role|tojson }}, this)"
+                                            style="border:none;background:#830026;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;">📞</button>
+                                </td>
                             </tr>
                         {% endfor %}
                     {% endfor %}
                     {% if not seen.jobs %}
-                    <tr><td colspan="7" style="padding:24px;text-align:center;color:#bbb;font-size:13px;">No scored candidates yet.</td></tr>
+                    <tr><td colspan="8" style="padding:24px;text-align:center;color:#bbb;font-size:13px;">No scored candidates yet.</td></tr>
                     {% endif %}
                 </tbody>
             </table>
@@ -537,7 +547,71 @@ async function rescoreCandidate(candidateId, jobId, btn) {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => { applyFilters(); autoScorePending(); {% if is_admin %}pollAdminRequests();{% endif %} });
+// ── AI Voice Screening: Automatic/Manual toggle + per-candidate manual call ──
+const VOICE_AGENT_URL = 'http://localhost:3001';
+const VOICE_AGENT_SECRET = 'be6c290a2b9fd52c342322ac2c8d1feadd328ff8c90675f257b6dd8d5d1d3890';
+
+function updateAutoCallToggleUI(enabled) {
+  const autoBtn = document.getElementById('btnAutoCallAuto');
+  const manualBtn = document.getElementById('btnAutoCallManual');
+  if (!autoBtn || !manualBtn) return;
+  autoBtn.style.background = enabled ? '#830026' : 'transparent';
+  autoBtn.style.color = enabled ? '#fff' : '#666';
+  manualBtn.style.background = !enabled ? '#830026' : 'transparent';
+  manualBtn.style.color = !enabled ? '#fff' : '#666';
+}
+
+async function loadAutoCallMode() {
+  try {
+    const res = await fetch(`${VOICE_AGENT_URL}/api/settings/auto-call`, {
+      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET },
+    }).then((r) => r.json());
+    updateAutoCallToggleUI(res.enabled !== false);
+  } catch (e) {
+    console.warn('[AI Voice Screening] backend unreachable on localhost:3001', e);
+  }
+}
+
+async function setAutoCallMode(enabled) {
+  try {
+    const res = await fetch(`${VOICE_AGENT_URL}/api/settings/auto-call`, {
+      method: 'POST',
+      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }).then((r) => r.json());
+    updateAutoCallToggleUI(res.enabled !== false);
+  } catch (e) {
+    alert('Could not reach the AI Voice Screening backend on localhost:3001.');
+  }
+}
+
+async function manualCall(name, phone, email, role, btn) {
+  if (!phone) {
+    alert('This candidate has no phone number on file.');
+    return;
+  }
+  const original = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const res = await fetch(`${VOICE_AGENT_URL}/api/candidates/manual-call`, {
+      method: 'POST',
+      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, email, roleTitle: role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      alert(`Call triggered for ${name}.`);
+    } else {
+      alert(`Could not trigger call for ${name}: ${data.error || 'unknown error'}`);
+    }
+  } catch (e) {
+    alert('Could not reach the AI Voice Screening backend on localhost:3001.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original ?? '📞'; }
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { applyFilters(); autoScorePending(); loadAutoCallMode(); {% if is_admin %}pollAdminRequests();{% endif %} });
 </script>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
