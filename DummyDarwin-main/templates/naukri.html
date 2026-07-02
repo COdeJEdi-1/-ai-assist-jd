@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{% if job %}{{ job.role_title }} · Arvind GCC{% else %}Job not found{% endif %} | Naukri.com</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#f0f2f5; margin:0; color:#1b1b1b; }
+    .topbar { background:#ffffff; border-bottom:3px solid #ff7555; padding:14px 24px; display:flex; align-items:center; gap:10px; }
+    .topbar-title { font-weight:800; font-size:24px; }
+    .topbar-title .naukri { color:#4a90d9; }
+    .topbar-title .dot { color:#ff7555; }
+    .wrap { max-width:760px; margin:24px auto; padding:0 16px; }
+    .card { background:#fff; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.12); padding:28px; }
+    .company-row { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+    .company-logo { width:56px; height:56px; border-radius:6px; background:#830026; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:20px; }
+    h1 { font-size:22px; margin:0 0 4px 0; }
+    .meta { color:#595959; font-size:14px; margin:2px 0; }
+    .apply-btn { display:inline-flex; align-items:center; gap:8px; background:#ff7555; color:#fff; font-weight:700; font-size:15px; padding:10px 26px; border-radius:4px; text-decoration:none; margin-top:18px; }
+    .apply-btn:hover { background:#e8603f; }
+    .section-title { font-weight:700; font-size:16px; margin:24px 0 8px 0; color:#1b1b1b; border-left:3px solid #ff7555; padding-left:8px; }
+    .desc { white-space:pre-wrap; font-size:14px; line-height:1.6; color:#333; max-height:340px; overflow-y:auto; }
+    .pill-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .pill { background:#fff1ee; color:#ff5b33; font-size:12px; font-weight:600; padding:4px 10px; border-radius:3px; border:1px solid #ffd8cc; }
+    .not-found { text-align:center; padding:60px 20px; color:#666; }
+</style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="topbar-title"><span class="naukri">naukri</span><span class="dot">.com</span></span>
+    </div>
+
+    <div class="wrap">
+    {% if job %}
+        <div class="card">
+            <div class="company-row">
+                <div class="company-logo">AG</div>
+                <div>
+                    <h1>{{ job.role_title }}</h1>
+                    <p class="meta">Arvind GCC | Ahmedabad, Gujarat, India</p>
+                </div>
+            </div>
+
+            {% set req = job.jd_requirements %}
+            {% if req %}
+                {% if req.min_years_experience is defined %}
+                <p class="meta"><strong>Experience:</strong> {{ req.min_years_experience }}-{{ req.max_years_experience }} years</p>
+                {% endif %}
+                {% if req.required_skills %}
+                <p class="meta"><strong>Key Skills</strong></p>
+                <div class="pill-row">
+                    {% for skill in req.required_skills[:8] %}
+                    <span class="pill">{{ skill }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endif %}
+
+            <a class="apply-btn" href="http://localhost:5001/apply/naukri/{{ job.darwinbox_job_id }}">
+                Apply
+            </a>
+
+            <div class="section-title">Job Description</div>
+            <div class="desc">{{ job.jd_text }}</div>
+        </div>
+    {% else %}
+        <div class="card not-found">
+            <h1>This job posting is no longer available.</h1>
+        </div>
+    {% endif %}
+    </div>
+</body>
+</html>
