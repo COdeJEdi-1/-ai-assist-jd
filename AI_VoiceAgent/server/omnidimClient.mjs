@@ -1,9 +1,52 @@
 const API_BASE = 'https://backend.omnidim.io/api/v1';
-const DISPATCH_RETRY_ATTEMPTS = 3;
-const DISPATCH_RETRY_DELAY_MS = 4000;
 
-function sleep(ms) {
+export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function isDryRun() {
+  return String(process.env.VOICE_AGENT_DRY_RUN || '').toLowerCase() === 'true';
+}
+
+function getTestPhone() {
+  return process.env.VOICE_AGENT_TEST_PHONE || '';
+}
+
+/** Resolves the number that should actually be dialed, respecting the dry-run safety switch. */
+export function resolveDialNumber(candidatePhone) {
+  const dryRun = isDryRun();
+  const testPhone = getTestPhone();
+
+  if (dryRun) {
+    return testPhone
+      ? { dialNumber: testPhone, dryRun: true, skipped: false }
+      : { dialNumber: null, dryRun: true, skipped: true };
+  }
+
+  return { dialNumber: candidatePhone, dryRun: false, skipped: false };
+}
+
+function normalizeCallStatus(status) {
+  return (status ?? '').toLowerCase().replace(/[_\s-]+/g, '');
+}
+
+/** Categorizes a raw OmniDimension call_status into pending | retry | completed | failed. */
+export function classifyCallStatus(status) {
+  const s = normalizeCallStatus(status);
+  if (!s) return 'pending';
+  if (s === 'failed' || s === 'rejected' || s === 'declined' || s === 'cancelled') return 'failed';
+  if (s === 'busy' || s === 'noanswer') return 'retry';
+  if (
+    s === 'inprogress' ||
+    s === 'ringing' ||
+    s === 'dispatched' ||
+    s === 'ongoing' ||
+    s === 'queued' ||
+    s === 'pending'
+  ) {
+    return 'pending';
+  }
+  return 'completed';
 }
 
 function getConfig() {
@@ -99,6 +142,21 @@ export async function ensurePhoneNumberConfigured() {
   await getPhoneNumberId(apiKey);
 }
 
+/**
+ * Dispatches a call to a candidate's number, respecting the dry-run safety switch.
+ * Returns { success, requestId, error, dialedNumber, dryRun, skipped }.
+ */
+export async function dispatchToPhone(candidatePhone, callContext) {
+  const { dialNumber, dryRun, skipped } = resolveDialNumber(candidatePhone);
+
+  if (skipped) {
+    return { success: false, skipped: true, dryRun, error: 'Dry run with no VOICE_AGENT_TEST_PHONE configured' };
+  }
+
+  const result = await dispatchOmnidimCall(dialNumber, callContext);
+  return { ...result, dialedNumber: dialNumber, dryRun, skipped: false };
+}
+
 function parseCallLogsPayload(data) {
   if (!data || typeof data !== 'object') return [];
   if (Array.isArray(data.call_log_data)) return data.call_log_data;
@@ -158,28 +216,4 @@ export async function fetchCallLogForPhone(phone) {
 
   if (matching.length === 0) return null;
   return matching.reduce((latest, log) => (log.id > latest.id ? log : latest));
-}
-
-export async function dispatchWithRetry(candidate, callContext) {
-  let lastError = 'Unknown error';
-
-  for (let attempt = 0; attempt < DISPATCH_RETRY_ATTEMPTS; attempt++) {
-    if (attempt > 0) {
-      await sleep(DISPATCH_RETRY_DELAY_MS);
-    }
-
-    try {
-      const result = await dispatchOmnidimCall(candidate.phoneNormalized, callContext);
-
-      if (result.success) {
-        return { success: true, requestId: result.requestId };
-      }
-
-      lastError = result.error ?? lastError;
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : 'Network error';
-    }
-  }
-
-  return { success: false, error: lastError };
 }

@@ -19,7 +19,7 @@ import {
   registerCampaign,
   storeWebhookEvent,
 } from './webhookStore.mjs';
-import { dispatchOmnidimCall } from './omnidimClient.mjs';
+import { dispatchToPhone, isDryRun } from './omnidimClient.mjs';
 import { buildBatchReport } from './batchReport.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,11 +49,6 @@ const PUBLIC_BASE_URL =
   process.env.WEBHOOK_PUBLIC_URL ||
   process.env.VITE_WEBHOOK_PUBLIC_URL ||
   'http://localhost:5173';
-
-// Safety switch: while true, auto-dispatched calls are redirected to VOICE_AGENT_TEST_PHONE
-// instead of the candidate's real number. Keep this on until the pipeline is verified.
-const DRY_RUN = String(process.env.VOICE_AGENT_DRY_RUN || '').toLowerCase() === 'true';
-const TEST_PHONE = process.env.VOICE_AGENT_TEST_PHONE || '';
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -106,6 +101,16 @@ function buildWebhookUrl() {
   return `${base}${path}?token=${encodeURIComponent(WEBHOOK_SECRET)}`;
 }
 
+function buildCallContext(record) {
+  return {
+    candidate_name: record.name,
+    candidate_email: record.email ?? '',
+    role_title: record.roleTitle ?? '',
+    match_score: record.score != null ? String(record.score) : '',
+    source: 'darwin_auto_screening',
+  };
+}
+
 async function dispatchInboundCandidate(record) {
   const batch = getOrOpenBatch();
   assignToBatch(batch.id, record.id);
@@ -118,44 +123,26 @@ async function dispatchInboundCandidate(record) {
     return;
   }
 
-  const dialNumber = DRY_RUN && TEST_PHONE ? TEST_PHONE : record.phoneNormalized;
+  const result = await dispatchToPhone(record.phoneNormalized, buildCallContext(record));
 
-  if (DRY_RUN && !TEST_PHONE) {
-    markCandidateDispatched(record.id, {
-      dispatchStatus: 'skipped_dry_run',
-      dryRun: true,
-    });
+  if (result.skipped) {
+    markCandidateDispatched(record.id, { dispatchStatus: 'skipped_dry_run', dryRun: true });
     console.log(`[Candidates] DRY RUN (no VOICE_AGENT_TEST_PHONE set) — skipped dispatch for ${record.name}`);
     return;
   }
-
-  const callContext = {
-    candidate_name: record.name,
-    candidate_email: record.email ?? '',
-    role_title: record.roleTitle ?? '',
-    match_score: record.score != null ? String(record.score) : '',
-    source: 'darwin_auto_screening',
-  };
-
-  const result = await dispatchOmnidimCall(dialNumber, callContext);
 
   markCandidateDispatched(record.id, {
     dispatchStatus: result.success ? 'dispatched' : 'failed',
     dispatchRequestId: result.requestId,
     dispatchError: result.error,
-    dryRun: DRY_RUN,
-    dialedNumber: dialNumber,
+    dryRun: result.dryRun,
+    dialedNumber: result.dialedNumber,
   });
 
-  if (DRY_RUN) {
-    console.log(
-      `[Candidates] DRY RUN dispatch for ${record.name} → redirected to test number ${dialNumber} (result: ${result.success ? 'ok' : result.error})`,
-    );
-  } else {
-    console.log(
-      `[Candidates] Dispatched call for ${record.name} → ${dialNumber} (result: ${result.success ? 'ok' : result.error})`,
-    );
-  }
+  const label = result.dryRun ? 'DRY RUN dispatch' : 'Dispatched call';
+  console.log(
+    `[Candidates] ${label} for ${record.name} → ${result.dialedNumber} (result: ${result.success ? 'ok' : result.error})`,
+  );
 }
 
 function checkExpiredBatches() {
@@ -313,7 +300,7 @@ const server = http.createServer(async (req, res) => {
       const limit = Number(url.searchParams.get('limit') || 200);
       sendJson(res, 200, {
         candidates: listInboundCandidates(limit),
-        dryRun: DRY_RUN,
+        dryRun: isDryRun(),
       });
       return;
     }
