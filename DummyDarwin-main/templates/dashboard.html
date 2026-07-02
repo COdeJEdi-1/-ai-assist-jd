@@ -231,6 +231,9 @@
                                     style="font-size:11px;padding:4px 8px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;cursor:pointer;color:#666;">
                                     ↻ Re-score
                                 </button>
+                                <button type="button" title="Manually call this candidate now"
+                                        onclick="event.stopPropagation();manualCall({{ c.name|tojson }}, {{ (c.phone or '')|tojson }}, {{ (c.email or '')|tojson }}, {{ (job_map.get(c.darwinbox_job_id,'Unknown'))|tojson }}, this)"
+                                        style="border:none;background:#830026;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;">📞</button>
                             </div>
                         </div>
 
@@ -548,72 +551,9 @@ async function rescoreCandidate(candidateId, jobId, btn) {
   }
 }
 
-// ── AI Voice Screening: Automatic/Manual toggle + per-candidate manual call ──
-const VOICE_AGENT_URL = 'http://localhost:3001';
-const VOICE_AGENT_SECRET = 'be6c290a2b9fd52c342322ac2c8d1feadd328ff8c90675f257b6dd8d5d1d3890';
-
-function updateAutoCallToggleUI(enabled) {
-  const autoBtn = document.getElementById('btnAutoCallAuto');
-  const manualBtn = document.getElementById('btnAutoCallManual');
-  if (!autoBtn || !manualBtn) return;
-  autoBtn.style.background = enabled ? '#830026' : 'transparent';
-  autoBtn.style.color = enabled ? '#fff' : '#666';
-  manualBtn.style.background = !enabled ? '#830026' : 'transparent';
-  manualBtn.style.color = !enabled ? '#fff' : '#666';
-}
-
-async function loadAutoCallMode() {
-  try {
-    const res = await fetch(`${VOICE_AGENT_URL}/api/settings/auto-call`, {
-      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET },
-    }).then((r) => r.json());
-    updateAutoCallToggleUI(res.enabled !== false);
-  } catch (e) {
-    console.warn('[AI Voice Screening] backend unreachable on localhost:3001', e);
-  }
-}
-
-async function setAutoCallMode(enabled) {
-  try {
-    const res = await fetch(`${VOICE_AGENT_URL}/api/settings/auto-call`, {
-      method: 'POST',
-      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    }).then((r) => r.json());
-    updateAutoCallToggleUI(res.enabled !== false);
-  } catch (e) {
-    alert('Could not reach the AI Voice Screening backend on localhost:3001.');
-  }
-}
-
-async function manualCall(name, phone, email, role, btn) {
-  if (!phone) {
-    alert('This candidate has no phone number on file.');
-    return;
-  }
-  const original = btn ? btn.textContent : null;
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    const res = await fetch(`${VOICE_AGENT_URL}/api/candidates/manual-call`, {
-      method: 'POST',
-      headers: { 'X-Webhook-Secret': VOICE_AGENT_SECRET, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, email, roleTitle: role }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) {
-      alert(`Call triggered for ${name}.`);
-    } else {
-      alert(`Could not trigger call for ${name}: ${data.error || 'unknown error'}`);
-    }
-  } catch (e) {
-    alert('Could not reach the AI Voice Screening backend on localhost:3001.');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = original ?? '📞'; }
-  }
-}
-
-window.addEventListener('DOMContentLoaded', () => { applyFilters(); autoScorePending(); loadAutoCallMode(); {% if is_admin %}pollAdminRequests();{% endif %} });
+window.addEventListener('DOMContentLoaded', () => { applyFilters(); autoScorePending(); {% if is_admin %}pollAdminRequests();{% endif %} });
 </script>
+<script src="{{ url_for('static', filename='js/voice-screening.js') }}"></script>
 
 <!-- ═══════════════════════════════════════════════════════════════════ -->
 <!-- RECRUITER: Filter dialog + pending status banner                   -->
