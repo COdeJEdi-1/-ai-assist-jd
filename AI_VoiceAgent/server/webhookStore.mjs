@@ -7,6 +7,8 @@ const DATA_DIR = path.join(__dirname, 'data');
 const EVENTS_FILE = path.join(DATA_DIR, 'post-call-webhooks.json');
 const CAMPAIGNS_FILE = path.join(DATA_DIR, 'registered-campaigns.json');
 const INBOUND_CANDIDATES_FILE = path.join(DATA_DIR, 'inbound-candidates.json');
+const BATCHES_FILE = path.join(DATA_DIR, 'inbound-batches.json');
+const DEFAULT_BATCH_WINDOW_MS = 10 * 60 * 1000;
 
 /** @typedef {import('./webhookTypes.mjs').PostCallWebhookEvent} PostCallWebhookEvent */
 /** @typedef {import('./webhookTypes.mjs').RegisteredCampaign} RegisteredCampaign */
@@ -40,6 +42,8 @@ let campaigns = readJson(CAMPAIGNS_FILE, []);
 
 let inboundCandidates = readJson(INBOUND_CANDIDATES_FILE, []);
 
+let batches = readJson(BATCHES_FILE, []);
+
 function persistEvents() {
   writeJson(EVENTS_FILE, events);
 }
@@ -50,6 +54,85 @@ function persistCampaigns() {
 
 function persistInboundCandidates() {
   writeJson(INBOUND_CANDIDATES_FILE, inboundCandidates);
+}
+
+function persistBatches() {
+  writeJson(BATCHES_FILE, batches);
+}
+
+function getBatchWindowMs() {
+  const parsed = Number(process.env.VOICE_AGENT_BATCH_WINDOW_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_BATCH_WINDOW_MS;
+}
+
+/** Returns the currently open batch, opening a new one if none is open or the open one's window has elapsed. */
+export function getOrOpenBatch() {
+  const now = Date.now();
+  const open = batches.find((b) => b.status === 'open');
+
+  if (open && open.closesAt > now) {
+    return open;
+  }
+
+  const batch = {
+    id: `batch-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    openedAt: now,
+    closesAt: now + getBatchWindowMs(),
+    status: 'open',
+    candidateIds: [],
+    reportPath: undefined,
+  };
+
+  batches = [batch, ...batches].slice(0, 500);
+  persistBatches();
+  return batch;
+}
+
+export function assignToBatch(batchId, candidateId) {
+  const batch = batches.find((b) => b.id === batchId);
+  if (!batch) return undefined;
+  if (!batch.candidateIds.includes(candidateId)) {
+    batch.candidateIds.push(candidateId);
+    persistBatches();
+  }
+  return batch;
+}
+
+export function listBatches(limit = 100) {
+  return batches.slice(0, limit);
+}
+
+export function getBatch(batchId) {
+  return batches.find((b) => b.id === batchId);
+}
+
+/** Batches whose window has elapsed but haven't been closed yet. */
+export function findExpiredOpenBatches() {
+  const now = Date.now();
+  return batches.filter((b) => b.status === 'open' && b.closesAt <= now);
+}
+
+export function closeBatch(batchId) {
+  const batch = batches.find((b) => b.id === batchId);
+  if (!batch) return undefined;
+  batch.status = 'closed';
+  persistBatches();
+  return batch;
+}
+
+export function markBatchReported(batchId, reportPath) {
+  const batch = batches.find((b) => b.id === batchId);
+  if (!batch) return undefined;
+  batch.status = 'reported';
+  batch.reportPath = reportPath;
+  persistBatches();
+  return batch;
+}
+
+export function getCandidatesForBatch(batchId) {
+  const batch = batches.find((b) => b.id === batchId);
+  if (!batch) return [];
+  return inboundCandidates.filter((c) => batch.candidateIds.includes(c.id));
 }
 
 /** Normalizes an Indian phone number to dialable +91XXXXXXXXXX form, or null if invalid. */

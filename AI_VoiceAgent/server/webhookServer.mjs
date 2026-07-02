@@ -5,8 +5,14 @@ import { fileURLToPath } from 'url';
 import { URL } from 'url';
 import {
   addInboundCandidate,
+  assignToBatch,
+  closeBatch,
+  findExpiredOpenBatches,
+  getBatch,
   getCallLogsFromWebhooks,
+  getOrOpenBatch,
   getWebhookStats,
+  listBatches,
   listInboundCandidates,
   listRecentEvents,
   markCandidateDispatched,
@@ -14,6 +20,7 @@ import {
   storeWebhookEvent,
 } from './webhookStore.mjs';
 import { dispatchOmnidimCall } from './omnidimClient.mjs';
+import { buildBatchReport } from './batchReport.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
@@ -100,6 +107,9 @@ function buildWebhookUrl() {
 }
 
 async function dispatchInboundCandidate(record) {
+  const batch = getOrOpenBatch();
+  assignToBatch(batch.id, record.id);
+
   if (!record.phoneNormalized) {
     markCandidateDispatched(record.id, {
       dispatchStatus: 'failed',
@@ -147,6 +157,18 @@ async function dispatchInboundCandidate(record) {
     );
   }
 }
+
+function checkExpiredBatches() {
+  for (const batch of findExpiredOpenBatches()) {
+    closeBatch(batch.id);
+    console.log(`[Batches] Closed batch ${batch.id} (${batch.candidateIds.length} candidates) — building report`);
+    buildBatchReport(batch.id)
+      .then((filePath) => console.log(`[Batches] Report ready for ${batch.id}: ${filePath}`))
+      .catch((err) => console.error(`[Batches] Report generation failed for ${batch.id}:`, err));
+  }
+}
+
+setInterval(checkExpiredBatches, 15_000);
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -293,6 +315,56 @@ const server = http.createServer(async (req, res) => {
         candidates: listInboundCandidates(limit),
         dryRun: DRY_RUN,
       });
+      return;
+    }
+
+    if (pathname === '/api/candidates/batches' && req.method === 'GET') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      const limit = Number(url.searchParams.get('limit') || 100);
+      sendJson(res, 200, {
+        batches: listBatches(limit).map((b) => ({
+          id: b.id,
+          openedAt: b.openedAt,
+          closesAt: b.closesAt,
+          status: b.status,
+          candidateCount: b.candidateIds.length,
+        })),
+      });
+      return;
+    }
+
+    const batchReportMatch = pathname.match(/^\/api\/candidates\/batches\/([^/]+)\/report$/);
+    if (batchReportMatch && req.method === 'GET') {
+      if (!isAuthorized(req, url)) {
+        sendJson(res, 401, { error: 'Unauthorized webhook request' });
+        return;
+      }
+
+      const batch = getBatch(batchReportMatch[1]);
+      if (!batch) {
+        sendJson(res, 404, { error: 'Batch not found' });
+        return;
+      }
+
+      if (batch.status !== 'reported' || !batch.reportPath || !fs.existsSync(batch.reportPath)) {
+        sendJson(res, 202, {
+          status: batch.status,
+          message: 'Report not ready yet — batch window may still be open or report is still generating.',
+        });
+        return;
+      }
+
+      const csv = fs.readFileSync(batch.reportPath, 'utf8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${batch.id}-report.csv"`,
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(csv);
       return;
     }
 

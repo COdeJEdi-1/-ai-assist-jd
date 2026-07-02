@@ -27,7 +27,7 @@ _SCORES_FILE = _DATA_DIR / "candidate_scores.json"
 _VOICE_AGENT_PUSHES_FILE = _DATA_DIR / "voice_agent_pushes.json"
 
 # ── Voice-agent auto-screening handoff ────────────────────────────────────────
-VOICE_AGENT_SCORE_THRESHOLD = 80
+VOICE_AGENT_SCORE_THRESHOLD = 70
 
 # ── Scoring weights (configurable) ────────────────────────────────────────────
 WEIGHTS = {

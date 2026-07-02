@@ -99,6 +99,67 @@ export async function ensurePhoneNumberConfigured() {
   await getPhoneNumberId(apiKey);
 }
 
+function parseCallLogsPayload(data) {
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data.call_log_data)) return data.call_log_data;
+  if (Array.isArray(data.log_data)) return data.log_data;
+  if (Array.isArray(data.data)) return data.data;
+  if (typeof data.id === 'number') return [data];
+  return [];
+}
+
+function getPhoneLast10(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  return digits.slice(-10);
+}
+
+/** Fetches recent call logs for this agent (no bulk-campaign scoping — used for single-candidate lookups). */
+export async function fetchRecentCallLogs() {
+  const { agentId, apiKey } = getConfig();
+
+  const params = new URLSearchParams({
+    pagesize: '150',
+    pageno: '1',
+    agentid: String(agentId),
+  });
+
+  try {
+    const response = await fetch(`${API_BASE}/calls/logs?${params.toString()}`, {
+      headers: authHeaders(apiKey),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.warn('[OmniDimension] call logs fetch failed:', extractApiError(data, response.status));
+      return [];
+    }
+
+    return parseCallLogsPayload(data);
+  } catch (err) {
+    console.warn('[OmniDimension] call logs network error:', err);
+    return [];
+  }
+}
+
+/** Finds the most recent call log matching a given phone number (either party), or null. */
+export async function fetchCallLogForPhone(phone) {
+  const targetKey = getPhoneLast10(phone);
+  if (!targetKey) return null;
+
+  const logs = await fetchRecentCallLogs();
+  const matching = logs.filter((log) => {
+    const toKey = getPhoneLast10(log.to_number);
+    const fromKey = getPhoneLast10(log.from_number);
+    return toKey === targetKey || fromKey === targetKey;
+  });
+
+  if (matching.length === 0) return null;
+  return matching.reduce((latest, log) => (log.id > latest.id ? log : latest));
+}
+
 export async function dispatchWithRetry(candidate, callContext) {
   let lastError = 'Unknown error';
 
