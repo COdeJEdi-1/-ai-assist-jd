@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-grey-border;
+  }
+
+  body {
+    @apply bg-surface-bg font-sans font-body text-gray-900 antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .layout-container {
+    @apply mx-auto w-full max-w-layout px-6;
+  }
+
+  .grid-12 {
+    @apply grid grid-cols-12 gap-6;
+  }
+
+  .ripple {
+    @apply relative overflow-hidden;
+  }
+
+  .ripple::after {
+    content: '';
+    @apply absolute inset-0 bg-white opacity-0 transition-opacity duration-300;
+  }
+
+  .ripple:active::after {
+    @apply opacity-20;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded bg-grey-border;
+  }
+
+  .status-calling {
+    @apply bg-blue-50 text-status-info;
+  }
+
+  .status-completed {
+    @apply bg-green-50 text-status-success;
+  }
+
+  .status-queued {
+    @apply bg-gray-100 text-grey-secondary;
+  }
+
+  .status-retry {
+    @apply bg-orange-50 text-status-warning;
+  }
+
+  .status-failed {
+    @apply bg-red-50 text-status-error;
+  }
+}
+
+@layer utilities {
+  .animate-stagger-1 { animation-delay: 0.05s; }
+  .animate-stagger-2 { animation-delay: 0.1s; }
+  .animate-stagger-3 { animation-delay: 0.15s; }
+  .animate-stagger-4 { animation-delay: 0.2s; }
+  .animate-stagger-5 { animation-delay: 0.25s; }
+  .animate-stagger-6 { animation-delay: 0.3s; }
+}

@@ -73,44 +73,32 @@
             </div>
         </div>
 
-        <div class="upload-section">
-            <form action="{{ url_for('upload.upload_jd') }}" method="POST" enctype="multipart/form-data" class="upload-form">
-                <label class="upload-area" for="jd-file">
-                    <input type="file" id="jd-file" name="file" accept=".pdf,.doc,.docx,.txt" hidden>
-                    <span class="upload-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    </span>
-                    <span class="upload-text">Choose file or drag here</span>
-                    <button type="button" class="btn btn-primary btn-upload" onclick="document.getElementById('jd-file').click()">
-                        Upload
-                    </button>
-                </label>
-                <p class="format-hint">Accepted formats: <span>PDF</span> <span>DOCX</span> <span>DOC</span> <span>TXT</span></p>
-            </form>
-        </div>
-
-        <div class="file-list-wrapper {% if jd_documents|length > 10 %}scrollable{% endif %}">
-            {% if jd_documents %}
+        <div class="file-list-wrapper {% if ai_jds|length > 10 %}scrollable{% endif %}">
+            {% if ai_jds %}
                 <ul class="file-list">
-                    {% for doc in jd_documents %}
-                        <li class="file-item">
-                            <div class="file-info">
-                                <span class="file-icon" aria-hidden="true">📄</span>
+                    {% for job in ai_jds %}
+                        <li class="file-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start;">
+                            <div class="file-info" style="flex:1;min-width:0;">
+                                <span class="file-icon" aria-hidden="true">🤖</span>
                                 <div class="file-details">
-                                    <span class="file-name" title="{{ doc.original_filename }}">{{ doc.original_filename }}</span>
-                                    <span class="file-date">{{ doc.formatted_date() }}</span>
+                                    <span class="file-name">{{ job.role_title }}
+                                        <span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:99px;font-weight:600;margin-left:4px;">AI · v{{ job.version }}</span>
+                                    </span>
+                                            <span class="file-date" style="font-family:monospace;font-size:10px;color:#aaa;">ID: {{ job.darwinbox_job_id }}</span>
+                                    <span class="file-date">Approved {{ job.published_at[:10] }}{% if is_admin and job.created_by %} · by {{ user_map.get(job.created_by, job.created_by[:8]) }}{% endif %}</span>
                                 </div>
                             </div>
-                            <div class="file-actions">
-                                <a href="{{ url_for('upload.view_document', document_id=doc.id) }}" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">View</a>
-                                <a href="{{ url_for('upload.download_document', document_id=doc.id) }}" class="btn btn-ghost btn-sm">Download</a>
-                                <form action="{{ url_for('upload.delete_document', document_id=doc.id) }}" method="POST" class="delete-form">
-                                    <button type="submit" class="btn btn-danger btn-sm" data-filename="{{ doc.original_filename }}">Delete</button>
-                                </form>
+                            <div class="file-actions" style="flex-wrap:wrap;gap:6px;">
+                                <a href="/linkedin?job_id={{ job.darwinbox_job_id }}" target="_blank"
+                                   style="display:inline-flex;align-items:center;gap:5px;background:#0077b5;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;text-decoration:none;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                                    LinkedIn
+                                </a>
+                                <a href="/naukri?job_id={{ job.darwinbox_job_id }}" target="_blank"
+                                   style="display:inline-flex;align-items:center;gap:5px;background:#ff7555;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;text-decoration:none;">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                                    Naukri
+                                </a>
                             </div>
                         </li>
                     {% endfor %}
@@ -118,15 +106,15 @@
             {% else %}
                 <div class="empty-state">
                     <span class="empty-icon">📂</span>
-                    <p>No documents uploaded yet.</p>
+                    <p>No JDs synced yet. Approve a JD in the generator to see it here.</p>
                 </div>
             {% endif %}
         </div>
     </article>
 
     <!-- Candidate Library Card -->
-    <article class="library-card">
-        <div class="library-card-header">
+    <article class="library-card" style="overflow:visible;">
+        <div class="library-card-header" style="flex-wrap:wrap;gap:12px;">
             <div class="library-card-title">
                 <div class="library-icon library-icon-candidate">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,60 +124,742 @@
                 </div>
                 <div>
                     <h2>Candidate Library</h2>
-                    <p class="library-description">Upload and manage candidate resumes.</p>
+                    <p class="library-description">Applications received via LinkedIn &amp; Naukri — AI-scored &amp; ranked.</p>
+                    <div id="scoringBanner" style="display:none;margin-top:6px;font-size:12px;color:#f57c00;background:#fff3e0;border-radius:6px;padding:4px 10px;font-weight:600;"></div>
                 </div>
             </div>
+            {% if candidates %}
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select id="roleFilter" onchange="applyFilters()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;color:#333;cursor:pointer;">
+                    <option value="">All Roles</option>
+                    {% set seen = [] %}
+                    {% for c in candidates %}{% set role = job_map.get(c.darwinbox_job_id,'Unknown') %}
+                        {% if role not in seen %}{% if seen.append(role) %}{% endif %}
+                        <option value="{{ c.darwinbox_job_id }}">{{ role }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <select id="platformFilter" onchange="applyFilters()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;color:#333;cursor:pointer;">
+                    <option value="">All Platforms</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="naukri">Naukri</option>
+                </select>
+                <select id="shortlistFilter" onchange="applyFilters()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;color:#333;cursor:pointer;">
+                    <option value="">All Candidates</option>
+                    <option value="shortlisted">Shortlisted only</option>
+                </select>
+                <select id="sortOrder" onchange="applyFilters()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;color:#333;cursor:pointer;">
+                    <option value="score_desc">Sort: Score ↓</option>
+                    <option value="score_asc">Sort: Score ↑</option>
+                    <option value="date_desc">Sort: Newest</option>
+                </select>
+                <span id="candidateCount" style="font-size:12px;color:#aaa;white-space:nowrap;"></span>
+            </div>
+            {% endif %}
         </div>
 
-        <div class="upload-section">
-            <form action="{{ url_for('upload.upload_candidate') }}" method="POST" enctype="multipart/form-data" class="upload-form">
-                <label class="upload-area" for="candidate-file">
-                    <input type="file" id="candidate-file" name="file" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" hidden>
-                    <span class="upload-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="17 8 12 3 7 8"/>
-                            <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                    </span>
-                    <span class="upload-text">Choose file or drag here</span>
-                    <button type="button" class="btn btn-primary btn-upload" onclick="document.getElementById('candidate-file').click()">
-                        Upload
-                    </button>
-                </label>
-                <p class="format-hint">Accepted formats: <span>PDF</span> <span>DOCX</span> <span>DOC</span> <span>TXT</span> <span>XLS</span> <span>XLSX</span></p>
-            </form>
-        </div>
+        <div style="border-top:1px solid #f0f0f0;padding-top:1rem;">
+            {% if candidates %}
+                <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;" id="candidateList">
+                    {% for c in candidates %}
+                    {% set sc = score_map.get(c.candidate_id) %}
+                    {% set threshold = threshold_map.get(c.darwinbox_job_id, 70) %}
+                    {% set overall = sc.overall_score if sc else -1 %}
+                    {% set shortlisted = (overall >= threshold) if sc else false %}
+                    <li class="candidate-row"
+                        data-job="{{ c.darwinbox_job_id }}"
+                        data-platform="{{ c.platform_source }}"
+                        data-score="{{ overall }}"
+                        data-date="{{ c.applied_at }}"
+                        data-shortlisted="{{ 'yes' if shortlisted else 'no' }}"
+                        style="display:block;background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;transition:box-shadow .15s;"
+                        onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'"
+                        onmouseout="this.style.boxShadow='none'">
 
-        <div class="file-list-wrapper {% if candidate_documents|length > 10 %}scrollable{% endif %}">
-            {% if candidate_documents %}
-                <ul class="file-list">
-                    {% for doc in candidate_documents %}
-                        <li class="file-item">
-                            <div class="file-info">
-                                <span class="file-icon" aria-hidden="true">📄</span>
-                                <div class="file-details">
-                                    <span class="file-name" title="{{ doc.original_filename }}">{{ doc.original_filename }}</span>
-                                    <span class="file-date">{{ doc.formatted_date() }}</span>
+                        <!-- Main row -->
+                        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap;cursor:pointer;"
+                             onclick="toggleBreakdown('{{ c.candidate_id }}')">
+                            <span style="font-size:20px;">👤</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                    <span style="font-weight:600;font-size:14px;">{{ c.name }}</span>
+                                    {% if c.platform_source == 'linkedin' %}
+                                    <span style="font-size:10px;background:#e8f4fd;color:#0a66c2;padding:1px 7px;border-radius:99px;font-weight:700;">LinkedIn</span>
+                                    {% else %}
+                                    <span style="font-size:10px;background:#fff3f0;color:#ff7555;padding:1px 7px;border-radius:99px;font-weight:700;">Naukri</span>
+                                    {% endif %}
+                                    {% if shortlisted %}
+                                    <span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:99px;font-weight:700;">✓ Shortlisted</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size:11px;color:#888;margin-top:2px;">
+                                    {{ c.email }}{% if c.phone %} · {{ c.phone }}{% endif %} ·
+                                    {{ job_map.get(c.darwinbox_job_id,'Unknown') }} · Applied {{ c.applied_at[:10] }}
+                                    {% if is_admin and c.get('created_by') %}· via {{ user_map.get(c.get('created_by'), '') }}{% endif %}
                                 </div>
                             </div>
-                            <div class="file-actions">
-                                <a href="{{ url_for('upload.view_document', document_id=doc.id) }}" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">View</a>
-                                <a href="{{ url_for('upload.download_document', document_id=doc.id) }}" class="btn btn-ghost btn-sm">Download</a>
-                                <form action="{{ url_for('upload.delete_document', document_id=doc.id) }}" method="POST" class="delete-form">
-                                    <button type="submit" class="btn btn-danger btn-sm" data-filename="{{ doc.original_filename }}">Delete</button>
-                                </form>
+                            <!-- Score badge -->
+                            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                                {% if sc %}
+                                {% set score_color = '#2e7d32' if overall >= score_thresholds.green else ('#f57c00' if overall >= score_thresholds.yellow else '#c62828') %}
+                                {% set score_bg = '#e8f5e9' if overall >= score_thresholds.green else ('#fff3e0' if overall >= score_thresholds.yellow else '#ffebee') %}
+                                <div style="text-align:center;background:{{ score_bg }};border-radius:8px;padding:6px 12px;min-width:56px;">
+                                    <div style="font-size:18px;font-weight:800;color:{{ score_color }};line-height:1;">{{ overall }}</div>
+                                    <div style="font-size:9px;color:{{ score_color }};font-weight:600;letter-spacing:0.04em;">/ 100</div>
+                                </div>
+                                {% else %}
+                                <div style="text-align:center;background:#f5f5f5;border-radius:8px;padding:6px 12px;min-width:56px;">
+                                    <div style="font-size:11px;color:#bbb;">Scoring…</div>
+                                </div>
+                                {% endif %}
+                                {% if c.resume_file %}
+                                    {% if is_admin %}
+                                    <a href="http://localhost:5001/static/{{ c.resume_file }}" target="_blank"
+                                       onclick="event.stopPropagation()"
+                                       class="btn btn-ghost btn-sm">Resume</a>
+                                    {% else %}
+                                    <span title="Admin login required to view resumes"
+                                          onclick="event.stopPropagation();alert('Please log in as Admin to view resumes.')"
+                                          style="font-size:12px;padding:4px 10px;border:1px solid #e0e0e0;border-radius:6px;background:#f5f5f5;color:#bbb;cursor:not-allowed;">🔒 Resume</span>
+                                    {% endif %}
+                                {% endif %}
+                                <button onclick="event.stopPropagation();rescoreCandidate('{{ c.candidate_id }}','{{ c.darwinbox_job_id }}',this)"
+                                    style="font-size:11px;padding:4px 8px;border:1px solid #e0e0e0;border-radius:6px;background:#fff;cursor:pointer;color:#666;">
+                                    ↻ Re-score
+                                </button>
                             </div>
-                        </li>
+                        </div>
+
+                        <!-- Score breakdown drawer (hidden by default) -->
+                        {% if sc %}
+                        <div id="breakdown-{{ c.candidate_id }}" style="display:none;background:#fafafa;border-top:1px solid #f0f0f0;padding:16px;">
+                            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;">
+                                {% for label,key,icon in [('Skills','skills_score','🎯'),('Experience','experience_score','📅'),('Education','education_score','🎓'),('Title Fit','title_relevance_score','💼'),('Domain','domain_score','🌐')] %}
+                                <div style="background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:10px;text-align:center;">
+                                    <div style="font-size:16px;">{{ icon }}</div>
+                                    <div style="font-size:16px;font-weight:700;color:#333;margin-top:2px;">{{ sc[key] }}</div>
+                                    <div style="font-size:10px;color:#888;">{{ label }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% set bd = sc.score_breakdown %}
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;">
+                                <div>
+                                    <div style="font-weight:700;color:#2e7d32;margin-bottom:4px;">✓ Matched Skills</div>
+                                    {% if bd.matched_required_skills %}
+                                        {% for s in bd.matched_required_skills %}<span style="display:inline-block;background:#e8f5e9;color:#2e7d32;border-radius:4px;padding:1px 6px;margin:2px;font-size:11px;">{{ s }}</span>{% endfor %}
+                                    {% else %}<span style="color:#aaa;">None matched</span>{% endif %}
+                                </div>
+                                <div>
+                                    <div style="font-weight:700;color:#c62828;margin-bottom:4px;">✗ Missing Skills</div>
+                                    {% if bd.missing_required_skills %}
+                                        {% for s in bd.missing_required_skills %}<span style="display:inline-block;background:#ffebee;color:#c62828;border-radius:4px;padding:1px 6px;margin:2px;font-size:11px;">{{ s }}</span>{% endfor %}
+                                    {% else %}<span style="color:#aaa;">None missing</span>{% endif %}
+                                </div>
+                            </div>
+                            <div style="margin-top:10px;font-size:12px;color:#666;display:flex;gap:20px;flex-wrap:wrap;">
+                                <span>📅 Candidate YOE: <strong>{{ bd.candidate_yoe }}</strong></span>
+                                <span>📊 Required: <strong>{{ bd.required_yoe_range }}</strong></span>
+                                {% if bd.experience_gap_years > 0 %}<span style="color:#f57c00;">⚠ Gap: {{ bd.experience_gap_years }} yr(s)</span>{% endif %}
+                                <span>🎓 {{ bd.candidate_education | join(', ') or '—' }}</span>
+                                <span>💼 {{ bd.candidate_titles[:2] | join(', ') or '—' }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </li>
                     {% endfor %}
                 </ul>
+                <div id="noResults" style="display:none;padding:24px;text-align:center;color:#aaa;font-size:13px;">No candidates match the selected filters.</div>
+
+                <!-- Download All Resumes button (recruiter-only) -->
+                {% if not is_admin %}
+                <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;">
+                    <button onclick="openDownloadDialog()"
+                        style="display:inline-flex;align-items:center;gap:8px;background:#830026;color:#fff;font-size:13px;font-weight:700;padding:10px 22px;border:none;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(131,0,38,0.18);">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Request Resume Download
+                    </button>
+                </div>
+                {% endif %}
             {% else %}
                 <div class="empty-state">
-                    <span class="empty-icon">📂</span>
-                    <p>No documents uploaded yet.</p>
+                    <span class="empty-icon">👥</span>
+                    <p>No candidates yet. Share the LinkedIn or Naukri link to receive applications.</p>
                 </div>
             {% endif %}
         </div>
     </article>
 </section>
+
+<!-- Top 3 Shortlist Export — visible to all logged-in users -->
+{% if candidates %}
+<section style="margin-top:2rem;">
+    <article class="library-card">
+        <div class="library-card-header">
+            <div class="library-card-title">
+                <div class="library-icon" style="background:#e8f5e9;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Top 3 Shortlist</h2>
+                    <p class="library-description">Highest-scored candidates per role — export to Excel for sharing.</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <a href="/api/top3-export"
+                   style="display:inline-flex;align-items:center;gap:7px;background:#2e7d32;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px rgba(46,125,50,0.18);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Excel
+                </a>
+                <a href="/api/qualified-export"
+                   title="Every candidate scored 80+ across all roles — the same set auto-sent to AI Voice Screening"
+                   style="display:inline-flex;align-items:center;gap:7px;background:#830026;color:#fff;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px;text-decoration:none;box-shadow:0 2px 8px rgba(131,0,38,0.18);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Qualified (80+) Excel
+                </a>
+            </div>
+        </div>
+
+        <div style="overflow-x:auto;margin-top:4px;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#f9fbe7;border-bottom:2px solid #e8f5e9;">
+                        <th style="text-align:left;padding:10px 14px;font-weight:700;color:#2e7d32;">Role</th>
+                        <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Rank</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:700;color:#2e7d32;">Name</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:700;color:#2e7d32;">Email</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:700;color:#2e7d32;">Phone</th>
+                        <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Score</th>
+                        <th style="text-align:center;padding:10px 8px;font-weight:700;color:#2e7d32;">Platform</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set rank_medals = ['🥇','🥈','🥉'] %}
+                    {% set ns = namespace(prev_job='', rank=0) %}
+                    {% set scored = [] %}
+                    {% for c in candidates %}
+                        {% set sc = score_map.get(c.candidate_id) %}
+                        {% if sc %}{% if scored.append((sc.overall_score, c, sc)) %}{% endif %}{% endif %}
+                    {% endfor %}
+                    {% set scored = scored | sort(attribute='0', reverse=True) %}
+
+                    {# Group by role manually: collect top-3 per job_id #}
+                    {% set seen = namespace(jobs={}) %}
+                    {% for score, c, sc in scored %}
+                        {% set jid = c.darwinbox_job_id %}
+                        {% if jid not in seen.jobs %}{% set _ = seen.jobs.update({jid: []}) %}{% endif %}
+                        {% if seen.jobs[jid]|length < 3 %}{% if seen.jobs[jid].append((score, c, sc)) %}{% endif %}{% endif %}
+                    {% endfor %}
+
+                    {% for jid, top_list in seen.jobs.items() %}
+                        {% set role = job_map.get(jid, 'Unknown') %}
+                        {% for idx in range(top_list|length) %}
+                            {% set score, c, sc = top_list[idx] %}
+                            {% set medal = rank_medals[idx] %}
+                            {% set row_bg = '#fffde7' if idx==0 else ('#fafafa' if idx==1 else '#fff8f0') %}
+                            <tr style="border-bottom:1px solid #f0f0f0;background:{{ row_bg }};"
+                                onmouseover="this.style.background='#f1f8e9'" onmouseout="this.style.background='{{ row_bg }}'">
+                                {% if idx == 0 %}
+                                <td style="padding:10px 14px;font-weight:600;color:#333;" rowspan="{{ top_list|length }}">{{ role }}</td>
+                                {% endif %}
+                                <td style="padding:10px 8px;text-align:center;font-size:18px;">{{ medal }}</td>
+                                <td style="padding:10px 14px;font-weight:600;">{{ c.name }}</td>
+                                <td style="padding:10px 14px;color:#555;font-size:12px;">{{ c.email }}</td>
+                                <td style="padding:10px 14px;color:#555;font-size:12px;">{{ c.phone or '—' }}</td>
+                                <td style="padding:10px 8px;text-align:center;">
+                                    {% set sc_color = '#2e7d32' if score >= 70 else ('#f57c00' if score >= 40 else '#c62828') %}
+                                    <span style="font-weight:800;font-size:14px;color:{{ sc_color }};">{{ score }}</span>
+                                    <span style="font-size:10px;color:#bbb;">/100</span>
+                                </td>
+                                <td style="padding:10px 8px;text-align:center;">
+                                    {% if c.platform_source == 'linkedin' %}
+                                    <span style="font-size:11px;background:#e8f4fd;color:#0a66c2;padding:2px 8px;border-radius:99px;font-weight:700;">LinkedIn</span>
+                                    {% else %}
+                                    <span style="font-size:11px;background:#fff3f0;color:#ff7555;padding:2px 8px;border-radius:99px;font-weight:700;">Naukri</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                    {% if not seen.jobs %}
+                    <tr><td colspan="7" style="padding:24px;text-align:center;color:#bbb;font-size:13px;">No scored candidates yet.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+{% endif %}
+
+{% if is_admin and activity_log %}
+<section style="margin-top:2rem;">
+    <article class="library-card">
+        <div class="library-card-header">
+            <div class="library-card-title">
+                <div class="library-icon" style="background:#f3e5f5;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7b1fa2" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Activity Log</h2>
+                    <p class="library-description">Admin-only audit trail of all platform actions.</p>
+                </div>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#fafafa;border-bottom:2px solid #f0f0f0;">
+                        <th style="text-align:left;padding:10px 14px;font-weight:600;color:#555;">Time</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:600;color:#555;">User</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:600;color:#555;">Action</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:600;color:#555;">Entity</th>
+                        <th style="text-align:left;padding:10px 14px;font-weight:600;color:#555;">Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in activity_log %}
+                    <tr style="border-bottom:1px solid #f5f5f5;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background=''">
+                        <td style="padding:9px 14px;color:#aaa;white-space:nowrap;">{{ entry.created_at[:16].replace('T',' ') }}</td>
+                        <td style="padding:9px 14px;font-weight:500;">{{ user_map.get(entry.user_id, entry.user_id[:8] ~ '…') }}</td>
+                        <td style="padding:9px 14px;">
+                            <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;
+                                background:{% if 'publish' in entry.action %}#e8f5e9{% elif 'score' in entry.action %}#e3f2fd{% else %}#fff3e0{% endif %};
+                                color:{% if 'publish' in entry.action %}#2e7d32{% elif 'score' in entry.action %}#1565c0{% else %}#e65100{% endif %};">
+                                {{ entry.action.replace('_',' ') }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 14px;color:#666;">{{ entry.entity_type.replace('_',' ') }}</td>
+                        <td style="padding:9px 14px;color:#888;font-size:11px;">
+                            {% if entry.metadata %}
+                                {% for k,v in entry.metadata.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+{% endif %}
+
+{% block extra_scripts %}
+<script>
+function toggleBreakdown(id) {
+  const el = document.getElementById('breakdown-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function applyFilters() {
+  const job   = (document.getElementById('roleFilter')      || {}).value || '';
+  const plat  = (document.getElementById('platformFilter')  || {}).value || '';
+  const shrt  = (document.getElementById('shortlistFilter') || {}).value || '';
+  const sort  = (document.getElementById('sortOrder')       || {}).value || 'score_desc';
+
+  const rows = Array.from(document.querySelectorAll('.candidate-row'));
+  let visible = 0;
+
+  rows.forEach(r => {
+    const matchJob  = !job  || r.dataset.job      === job;
+    const matchPlat = !plat || r.dataset.platform === plat;
+    const matchShrt = !shrt || (shrt === 'shortlisted' && r.dataset.shortlisted === 'yes');
+    const show = matchJob && matchPlat && matchShrt;
+    r.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  // Sort visible rows
+  const list = document.getElementById('candidateList');
+  if (list) {
+    const visibleRows = rows.filter(r => r.style.display !== 'none');
+    visibleRows.sort((a, b) => {
+      if (sort === 'score_desc') return parseFloat(b.dataset.score) - parseFloat(a.dataset.score);
+      if (sort === 'score_asc')  return parseFloat(a.dataset.score) - parseFloat(b.dataset.score);
+      return b.dataset.date.localeCompare(a.dataset.date);
+    });
+    visibleRows.forEach(r => list.appendChild(r));
+  }
+
+  const countEl   = document.getElementById('candidateCount');
+  const noResults = document.getElementById('noResults');
+  if (countEl)   countEl.textContent = visible + ' candidate' + (visible !== 1 ? 's' : '');
+  if (noResults) noResults.style.display = visible === 0 ? '' : 'none';
+}
+
+// Auto-score unscored candidates on page load
+async function autoScorePending() {
+  try {
+    const res = await fetch('http://localhost:5001/api/candidates/score-pending', {credentials:'include'}).then(r=>r.json());
+    if (res.queued > 0) {
+      const banner = document.getElementById('scoringBanner');
+      if (banner) {
+        banner.textContent = `⏳ Scoring ${res.queued} candidate(s) in background…`;
+        banner.style.display = '';
+      }
+      // Auto-refresh once scoring is likely done (3s per candidate, min 8s)
+      const wait = Math.max(8000, res.queued * 4000);
+      setTimeout(() => location.reload(), wait);
+    }
+  } catch(e) { /* Flask may not be reachable, ignore */ }
+}
+
+async function rescoreCandidate(candidateId, jobId, btn) {
+  btn.disabled = true;
+  btn.textContent = '↻ Scoring…';
+  try {
+    const res = await fetch('http://localhost:5001/api/candidates/rescore', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: JSON.stringify({candidate_id: candidateId, darwinbox_job_id: jobId}),
+    }).then(r => r.json());
+    if (res.success) {
+      btn.textContent = '✓ Done';
+      setTimeout(() => location.reload(), 800);
+    } else {
+      btn.textContent = '✗ Failed';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = '✗ Error';
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { applyFilters(); autoScorePending(); {% if is_admin %}pollAdminRequests();{% endif %} });
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- RECRUITER: Filter dialog + pending status banner                   -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if not is_admin %}
+<!-- Pending request status bar (shown after request submitted) -->
+<div id="downloadStatusBar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1000;
+     background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.13);
+     padding:14px 24px;display:none;align-items:center;gap:14px;min-width:340px;max-width:520px;">
+    <div id="statusBarIcon" style="font-size:22px;">⏳</div>
+    <div style="flex:1;">
+        <div id="statusBarTitle" style="font-weight:700;font-size:14px;color:#333;">Awaiting admin approval</div>
+        <div id="statusBarSub" style="font-size:12px;color:#888;margin-top:2px;">Your request has been sent to the admin.</div>
+    </div>
+    <button onclick="closeStatusBar()" style="background:none;border:none;font-size:18px;color:#bbb;cursor:pointer;line-height:1;">×</button>
+</div>
+
+<!-- Download filter dialog -->
+<div id="downloadDialog" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.18);padding:32px 28px;width:100%;max-width:460px;position:relative;">
+        <button onclick="closeDownloadDialog()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:22px;color:#bbb;cursor:pointer;">×</button>
+        <h3 style="font-size:17px;font-weight:800;color:#1a1a1a;margin:0 0 4px;">Request Resume Download</h3>
+        <p style="font-size:12px;color:#888;margin:0 0 22px;">Your request will be sent to admin for approval.</p>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            <!-- Date range -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Applied From</label>
+                    <input type="date" id="dlDateFrom" style="width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:7px;font-size:13px;box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">Applied To</label>
+                    <input type="date" id="dlDateTo" style="width:100%;padding:8px 10px;border:1.5px solid #e0e0e0;border-radius:7px;font-size:13px;box-sizing:border-box;">
+                </div>
+            </div>
+
+            <!-- Min score -->
+            <div>
+                <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px;">
+                    Minimum Score: <span id="dlScoreLabel" style="color:#830026;font-weight:700;">0</span> / 100
+                </label>
+                <input type="range" id="dlMinScore" min="0" max="100" value="0" step="5"
+                    oninput="document.getElementById('dlScoreLabel').textContent=this.value"
+                    style="width:100%;accent-color:#830026;">
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:#bbb;margin-top:2px;"><span>0 (all)</span><span>50 (good)</span><span>70 (shortlisted)</span><span>100</span></div>
+            </div>
+
+            <!-- Platform -->
+            <div>
+                <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:6px;">Platform</label>
+                <div style="display:flex;gap:10px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" id="dlPlatLinkedIn" value="linkedin" checked style="accent-color:#830026;"> LinkedIn
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" id="dlPlatNaukri" value="naukri" checked style="accent-color:#830026;"> Naukri
+                    </label>
+                </div>
+            </div>
+
+            <!-- Roles -->
+            <div>
+                <label style="font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:6px;">Roles (leave unchecked = all)</label>
+                <div id="dlRoleCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;max-height:90px;overflow-y:auto;">
+                    {% set seen_roles = [] %}
+                    {% for c in candidates %}
+                        {% set role = job_map.get(c.darwinbox_job_id,'Unknown') %}
+                        {% if role not in seen_roles %}{% if seen_roles.append(role) %}{% endif %}
+                        <label style="display:flex;align-items:center;gap:5px;font-size:12px;background:#f5f5f5;padding:3px 9px;border-radius:99px;cursor:pointer;">
+                            <input type="checkbox" class="dlRoleCheck" value="{{ c.darwinbox_job_id }}" style="accent-color:#830026;"> {{ role }}
+                        </label>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Match count preview -->
+            <div id="dlMatchPreview" style="font-size:12px;color:#666;background:#f9f9f9;border-radius:7px;padding:8px 12px;text-align:center;"></div>
+
+            <button onclick="submitDownloadRequest()"
+                style="width:100%;padding:12px;background:#830026;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">
+                Send Request to Admin →
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const DL_STORAGE_KEY = 'darwin_dl_request_id';
+let _dlRequestId = localStorage.getItem(DL_STORAGE_KEY) || null;
+let _dlPollTimer = null;
+
+function openDownloadDialog() {
+    document.getElementById('downloadDialog').style.display = 'flex';
+}
+function closeDownloadDialog() {
+    document.getElementById('downloadDialog').style.display = 'none';
+}
+function closeStatusBar() {
+    document.getElementById('downloadStatusBar').style.display = 'none';
+    clearInterval(_dlPollTimer);
+    localStorage.removeItem(DL_STORAGE_KEY);
+    _dlRequestId = null;
+}
+
+function _showStatusBar(icon, title, subHtml) {
+    document.getElementById('statusBarIcon').textContent = icon;
+    document.getElementById('statusBarTitle').textContent = title;
+    const sub = document.getElementById('statusBarSub');
+    sub.innerHTML = subHtml;
+    document.getElementById('downloadStatusBar').style.display = 'flex';
+}
+
+async function submitDownloadRequest() {
+    const dateFrom  = document.getElementById('dlDateFrom').value;
+    const dateTo    = document.getElementById('dlDateTo').value;
+    const minScore  = parseInt(document.getElementById('dlMinScore').value) || 0;
+    const platforms = [];
+    if (document.getElementById('dlPlatLinkedIn').checked) platforms.push('linkedin');
+    if (document.getElementById('dlPlatNaukri').checked)   platforms.push('naukri');
+    const jobIds = Array.from(document.querySelectorAll('.dlRoleCheck:checked')).map(el => el.value);
+
+    const res = await fetch('/api/download-request', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ date_from: dateFrom, date_to: dateTo, min_score: minScore, platforms, job_ids: jobIds }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Failed to send request.'); return; }
+
+    _dlRequestId = data.request_id;
+    localStorage.setItem(DL_STORAGE_KEY, _dlRequestId);
+    closeDownloadDialog();
+
+    _showStatusBar('⏳', `Request sent — ${data.match_count} resume(s) matched`, 'Waiting for admin approval…');
+
+    clearInterval(_dlPollTimer);
+    _dlPollTimer = setInterval(pollRequestStatus, 4000);
+}
+
+async function pollRequestStatus() {
+    if (!_dlRequestId) return;
+    try {
+        const res = await fetch(`/api/download-request/${_dlRequestId}/status`);
+        if (!res.ok) return;
+        const r = await res.json();
+
+        if (r.status === 'approved') {
+            clearInterval(_dlPollTimer);
+            localStorage.removeItem(DL_STORAGE_KEY);
+            _showStatusBar(
+                '✅',
+                `Approved by ${r.reviewer_name || 'admin'} — ready to download`,
+                `<a href="/api/download-request/${_dlRequestId}/download"
+                    style="color:#830026;font-weight:700;text-decoration:underline;">
+                    Download ${r.match_count} resume(s) now →
+                </a>`
+            );
+            // Browser notification if permitted
+            if (Notification.permission === 'granted') {
+                new Notification('Resume download approved!', {
+                    body: `Your request for ${r.match_count} resume(s) has been approved.`,
+                    icon: '/static/favicon.ico',
+                });
+            }
+        } else if (r.status === 'rejected') {
+            clearInterval(_dlPollTimer);
+            localStorage.removeItem(DL_STORAGE_KEY);
+            _showStatusBar(
+                '❌',
+                'Request rejected by admin',
+                r.reject_reason ? `Reason: ${r.reject_reason}` : 'No reason provided.'
+            );
+        } else {
+            // Still pending — keep the waiting state visible
+            _showStatusBar('⏳', `Request pending approval…`, 'The admin has been notified. You\'ll be notified here once reviewed.');
+        }
+    } catch(e) { /* ignore network hiccup */ }
+}
+
+// On page load: restore any pending/approved request from localStorage
+window.addEventListener('DOMContentLoaded', () => {
+    if (Notification.permission === 'default') Notification.requestPermission();
+    if (_dlRequestId) {
+        _showStatusBar('⏳', 'Checking your download request status…', '');
+        pollRequestStatus();
+        _dlPollTimer = setInterval(pollRequestStatus, 4000);
+    }
+});
+</script>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- ADMIN: floating notification + approval popup                      -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+{% if is_admin %}
+<!-- Floating badge -->
+<div id="adminDownloadBadge" onclick="openAdminApprovalPanel()"
+    style="display:none;position:fixed;bottom:28px;right:28px;z-index:1000;
+           background:#830026;color:#fff;border-radius:99px;padding:12px 20px;
+           box-shadow:0 4px 20px rgba(131,0,38,0.35);cursor:pointer;
+           align-items:center;gap:8px;font-size:13px;font-weight:700;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span id="adminBadgeText">0 pending download request(s)</span>
+</div>
+
+<!-- Admin approval panel -->
+<div id="adminApprovalPanel" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.18);padding:28px;width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;position:relative;">
+        <button onclick="closeAdminPanel()" style="position:absolute;top:14px;right:18px;background:none;border:none;font-size:22px;color:#bbb;cursor:pointer;">×</button>
+        <h3 style="font-size:16px;font-weight:800;color:#1a1a1a;margin:0 0 4px;">Resume Download Requests</h3>
+        <p style="font-size:12px;color:#888;margin:0 0 18px;">Review and approve recruiter requests below.</p>
+        <div id="adminRequestList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+</div>
+
+<script>
+let _adminPollTimer = null;
+
+function openAdminApprovalPanel() {
+    document.getElementById('adminApprovalPanel').style.display = 'flex';
+    loadAdminRequests();
+}
+function closeAdminPanel() {
+    document.getElementById('adminApprovalPanel').style.display = 'none';
+}
+
+async function pollAdminRequests() {
+    await loadAdminRequests(true);
+    _adminPollTimer = setInterval(() => loadAdminRequests(true), 8000);
+}
+
+async function loadAdminRequests(badgeOnly = false) {
+    try {
+        const res = await fetch('/api/download-requests');
+        const reqs = await res.json();
+        const pending = reqs.filter(r => r.status === 'pending');
+
+        const badge = document.getElementById('adminDownloadBadge');
+        if (pending.length > 0) {
+            document.getElementById('adminBadgeText').textContent =
+                pending.length + ' pending download request' + (pending.length > 1 ? 's' : '');
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        if (!badgeOnly) {
+            renderAdminRequests(reqs);
+        }
+    } catch(e) {}
+}
+
+function renderAdminRequests(reqs) {
+    const list = document.getElementById('adminRequestList');
+    if (!reqs.length) {
+        list.innerHTML = '<div style="text-align:center;color:#bbb;padding:24px;font-size:13px;">No requests yet.</div>';
+        return;
+    }
+    list.innerHTML = reqs.map(r => {
+        const f = r.filters || {};
+        const filterDesc = [
+            f.date_from ? `From ${f.date_from}` : '',
+            f.date_to   ? `To ${f.date_to}` : '',
+            f.min_score > 0 ? `Score ≥ ${f.min_score}` : 'All scores',
+            (f.platforms||[]).length ? f.platforms.join(', ') : 'All platforms',
+        ].filter(Boolean).join(' · ');
+
+        const statusColor = r.status === 'approved' ? '#2e7d32' : r.status === 'rejected' ? '#c62828' : '#e65100';
+        const statusBg    = r.status === 'approved' ? '#e8f5e9' : r.status === 'rejected' ? '#ffebee' : '#fff3e0';
+        const isPending = r.status === 'pending';
+
+        return `<div style="border:1.5px solid #f0f0f0;border-radius:10px;padding:14px 16px;${isPending?'border-color:#ffc107;background:#fffde7;':''}">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <div>
+                    <div style="font-weight:700;font-size:13px;color:#1a1a1a;">${r.requester_name}</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;">${r.created_at.slice(0,16).replace('T',' ')}</div>
+                    <div style="font-size:12px;color:#555;margin-top:6px;">${filterDesc}</div>
+                    <div style="font-size:12px;font-weight:600;color:#333;margin-top:4px;">${r.match_count} resume(s) matched</div>
+                    ${r.reject_reason ? `<div style="font-size:11px;color:#c62828;margin-top:4px;">Reason: ${r.reject_reason}</div>` : ''}
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:${statusBg};color:${statusColor};">
+                        ${r.status.toUpperCase()}
+                    </span>
+                    ${isPending ? `
+                    <button onclick="reviewRequest('${r.request_id}','approve')"
+                        style="font-size:12px;font-weight:700;padding:6px 14px;background:#2e7d32;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                        ✓ Approve
+                    </button>
+                    <button onclick="promptReject('${r.request_id}')"
+                        style="font-size:12px;font-weight:700;padding:6px 14px;background:#c62828;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                        ✗ Reject
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function reviewRequest(reqId, action, reason = '') {
+    const res = await fetch(`/api/download-request/${reqId}/review`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action, reason }),
+    });
+    const data = await res.json();
+    if (data.success) {
+        await loadAdminRequests();
+    } else {
+        alert(data.error || 'Failed.');
+    }
+}
+
+function promptReject(reqId) {
+    const reason = prompt('Reason for rejection (optional):') || '';
+    reviewRequest(reqId, 'reject', reason);
+}
+</script>
+{% endif %}
+{% endblock %}
 {% endblock %}

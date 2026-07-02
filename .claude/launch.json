@@ -6,6 +6,32 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8090"],
       "port": 8090
+    },
+    {
+      "name": "AI Voice Screening (AI_VoiceAgent)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "AI_VoiceAgent", "--", "--port", "5173"],
+      "port": 5173
+    },
+    {
+      "name": "Darwinbox HRIS (DummyDarwin-main)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["app.py"],
+      "cwd": "DummyDarwin-main",
+      "port": 5002
+    },
+    {
+      "name": "JD Generator (jd_prototype)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["app.py"],
+      "cwd": "jd_prototype",
+      "port": 5001
+    },
+    {
+      "name": "AI_VoiceAgent Webhook Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:webhook", "--prefix", "AI_VoiceAgent"],
+      "port": 3001
     }
   ]
 }
